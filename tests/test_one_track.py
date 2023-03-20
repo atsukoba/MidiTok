@@ -56,6 +56,7 @@ def test_one_track_midi_to_tokens_to_midi(
         "TSD",
         "Structured",
         "REMI",
+        "REMIPlus",
         "CPWord",
         "Octuple",
         "OctupleMono",
@@ -74,6 +75,7 @@ def test_one_track_midi_to_tokens_to_midi(
 
         for tokenization in tokenizations:
             add_tokens = deepcopy(ADDITIONAL_TOKENS_TEST)
+            # Increase the number of rest just to cover very long pauses / rests in test examples
             if tokenization in ["MIDILike", "TSD"]:
                 add_tokens["rest_range"] = (
                     add_tokens["rest_range"][0],
@@ -86,11 +88,11 @@ def test_one_track_midi_to_tokens_to_midi(
 
             # Convert the track in tokens
             tokens = tokenizer(midi)
+            if not tokenizer.unique_track:  # or isinstance list
+                tokens = tokens[0]
 
             # Checks types and values conformity following the rules
-            tokens_types = tokenizer.tokens_errors(
-                tokens[0] if not tokenizer.unique_track else tokens
-            )
+            tokens_types = tokenizer.tokens_errors(tokens)
             if tokens_types != 0.0:
                 print(
                     f"Validation of tokens types / values successions failed with {tokenization}: {tokens_types:.2f}"
@@ -99,7 +101,7 @@ def test_one_track_midi_to_tokens_to_midi(
             # Convert back tokens into a track object
             tempo_changes = None
             time_sig_changes = None
-            if tokenization == "Octuple" or tokenization == "MuMIDI":
+            if tokenizer.unique_track:
                 new_midi = tokenizer.tokens_to_midi(
                     tokens, time_division=midi.ticks_per_beat
                 )
@@ -109,7 +111,7 @@ def test_one_track_midi_to_tokens_to_midi(
                     time_sig_changes = new_midi.time_signature_changes
             else:
                 track, tempo_changes = tokenizer.tokens_to_track(
-                    tokens[0], midi.ticks_per_beat
+                    tokens, midi.ticks_per_beat
                 )
 
             # Checks its good

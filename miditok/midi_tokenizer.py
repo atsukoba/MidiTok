@@ -32,6 +32,8 @@ from .constants import (
     ADDITIONAL_TOKENS,
     SPECIAL_TOKENS,
     CHR_ID_START,
+    PITCH_CLASSES,
+    UNKNOWN_CHORD_PREFIX,
 )
 
 
@@ -59,7 +61,12 @@ def _in_as_seq(complete: bool = True, decode_bpe: bool = True):
                     else:  # list of Event, very unlikely
                         events = seq
 
-                seq = TokSequence(ids=ids, tokens=tokens, events=events)
+                seq = TokSequence(
+                    ids=ids,
+                    tokens=tokens,
+                    events=events,
+                    ids_bpe_encoded=self._ids_are_bpe_encoded(ids)
+                )
 
             if self.has_bpe and decode_bpe:
                 self.decode_bpe(seq)
@@ -128,7 +135,7 @@ class MIDITokenizer(ABC):
         beat_res: Dict[Tuple[int, int], int] = BEAT_RES,
         nb_velocities: int = NB_VELOCITIES,
         additional_tokens: Dict[
-            str, Union[bool, int, Tuple[int, int]]
+            str, Union[bool, int, Dict[str, Tuple], Tuple[int, int]]
         ] = ADDITIONAL_TOKENS,
         special_tokens: List[str] = SPECIAL_TOKENS,
         unique_track: bool = False,
@@ -768,6 +775,37 @@ class MIDITokenizer(ABC):
             if self._bpe_model is not None and add_to_bpe_model:
                 self._bpe_model.add_tokens([byte_])
 
+    def _create_chords_tokens(self) -> List[str]:
+        """Just create the *Chord* tokens that will populate the base vocabulary.
+        This protected method is intended to be used by subclasses when creating their vocabularies.
+
+        :return: chord tokens, created from the tokenizer's params
+        """
+        tokens = []
+        if self.additional_tokens.get("chord_tokens_with_root_note", False):
+            tokens += [
+                f"Chord_{root_note}:{chord_quality}"
+                for chord_quality in self.additional_tokens["chord_maps"]
+                for root_note in PITCH_CLASSES
+            ]
+        else:
+            tokens += [f"Chord_{chord_quality}" for chord_quality in self.additional_tokens["chord_maps"]]
+
+        # Unknown chords
+        if self.additional_tokens["chord_unknown"] is not False:
+            if self.additional_tokens["chord_tokens_with_root_note"]:
+                tokens += [
+                    f"Chord_{root_note}:{UNKNOWN_CHORD_PREFIX}{i}"
+                    for i in range(*self.additional_tokens["chord_unknown"])
+                    for root_note in PITCH_CLASSES
+                ]
+            else:
+                tokens += [
+                    f"Chord_{i}" for i in range(*self.additional_tokens["chord_unknown"])
+                ]
+
+        return tokens
+
     def token_id_type(self, id_: int, vocab_id: int = None) -> str:
         r"""Returns the type of the given token id.
 
@@ -1366,6 +1404,16 @@ class MIDITokenizer(ABC):
                 else path
             )
             self.save_tokens(seq, out_, sample["programs"])
+
+    def _ids_are_bpe_encoded(self, ids: Union[List[int], np.ndarray]) -> bool:
+        r"""A small check telling if a sequence of ids are encoded with BPE.
+        This is performed by checking if any id has a value superior or equal to the length
+        of the base vocabulary.
+
+        :param ids: ids to check
+        :return: boolean, True if ids are encoded with BPE, False otherwise.
+        """
+        return np.any(np.array(ids) >= len(self._vocab_base))
 
     def decode_bpe(self, seq: Union[TokSequence, List[TokSequence]]):
         r"""Decodes (inplace) a sequence of tokens (:class:`miditok.TokSequence`) with ids encoded with BPE.

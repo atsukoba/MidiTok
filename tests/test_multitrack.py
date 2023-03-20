@@ -40,6 +40,9 @@ ADDITIONAL_TOKENS_TEST = {
     "Tempo": True,
     "TimeSignature": True,
     "Program": True,
+    "chord_maps": miditok.constants.CHORD_MAPS,
+    "chord_tokens_with_root_note": True,  # Tokens will look as "Chord_C:maj"
+    "chord_unknown": (3, 6),
     "rest_range": (
         4,
         1024,
@@ -59,7 +62,15 @@ def test_multitrack_midi_to_tokens_to_midi(
     times quantized, and maybe a some duplicated notes removed
 
     """
-    tokenizations = ["REMI", "CPWord", "Octuple", "OctupleMono", "MuMIDI", "MMMTrack"]
+    tokenizations = [
+        "REMI",
+        "REMIPlus",
+        "CPWord",
+        "Octuple",
+        "OctupleMono",
+        "MuMIDI",
+        "MMMTrack",
+    ]
     files = list(Path(data_path).glob("**/*.mid"))
     at_least_one_error = False
 
@@ -93,7 +104,7 @@ def test_multitrack_midi_to_tokens_to_midi(
 
             # Sort and merge tracks if needed
             # MIDI produced with Octuple contains tracks ordered by program
-            if tokenization in ["Octuple", "MuMIDI"]:
+            if tokenization in ["Octuple", "MuMIDI", "REMIPlus", "MMMTrack"]:
                 miditok.utils.merge_same_program_tracks(
                     midi_to_compare.instruments
                 )  # merge tracks
@@ -105,7 +116,7 @@ def test_multitrack_midi_to_tokens_to_midi(
                     max(tu[1] for tu in BEAT_RES_TEST) * midi_to_compare.ticks_per_beat,
                 )
                 miditok.utils.remove_duplicated_notes(track.notes)
-            if tokenization == "Octuple":  # needed
+            if tokenization in ["Octuple", "REMIPlus"]:  # needed
                 adapt_tempo_changes_times(
                     midi_to_compare.instruments, midi_to_compare.tempo_changes
                 )
@@ -161,10 +172,10 @@ def test_multitrack_midi_to_tokens_to_midi(
                     )
 
             # Checks time signatures
-            if (
-                tokenizer.additional_tokens["TimeSignature"]
-                and tokenization == "Octuple"
-            ):
+            if tokenizer.additional_tokens["TimeSignature"] and tokenization in [
+                "Octuple",
+                "REMIPlus",
+            ]:
                 time_sig_errors = time_signature_changes_equals(
                     midi_to_compare.time_signature_changes,
                     new_midi.time_signature_changes,
