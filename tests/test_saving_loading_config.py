@@ -36,6 +36,8 @@ def test_saving_loading_tokenizer():
         "Octuple",
         "OctupleMono",
         "MuMIDI",
+        "MMMTrack",
+        "MMMBar"
     ]
 
     for tokenization in tokenizations:

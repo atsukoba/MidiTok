@@ -89,6 +89,8 @@ def test_data_augmentation():
         "CPWord",
         "Octuple",
         "OctupleMono",
+        "MMMBar",
+        "MMMTrack"
     ]
     original_midi_paths = list(data_path.glob("**/*.mid"))
 

@@ -60,6 +60,8 @@ def test_one_track_midi_to_tokens_to_midi(
         "Octuple",
         "OctupleMono",
         "MuMIDI",
+        "MMMTrack",
+        "MMMbar"
     ]
     files = list(Path(data_path).glob("**/*.mid"))
     at_least_one_error = False
